@@ -62,7 +62,48 @@ class Filter extends Component {
 	}
 }
 
+class Items extends Component {
+	getUrl(images) {
+		var selectedMax = Infinity;
+		var selected = null;
+		let x
+		for (x in images) {
+			if (images[x].width < selectedMax) {
+				selected = images[x];
+				selectedMax = images[x].width;
+			}
+		}
+		return selected.url;
+	}
+	render() {
+		return(
+			 <div className="container">
+			      <div className="col-xs-12 col-sm-8 col-sm-offset-2">
+			        <ul className="results">
+			          
+				        {
+				          	this.props.items.map((item, i) => {
+				          		var artwork = require('./no-image.png');
+				          		if (item.images) {
+				          			if (item.images.length > 0)
+				          				artwork=this.getUrl(item.images)
+				          		}
+				          		else {
+				          			if (item.album && item.album.images.length > 0)
+					          			artwork=this.getUrl(item.album.images)
+				          		}
+						    	return <li key={i}><img alt="noimg" className="thumb" height="64" width="64" src={artwork}/>({item.type}){item.name}</li>
+							})
+					    }
+			        </ul>
+			      </div>
+		    </div>
+		)
+	}
+}
+
 class Search extends Component {
+
 	render() {
 		return (
 			<div className="container">
@@ -71,7 +112,7 @@ class Search extends Component {
 		          <div className="col-xs-12 col-sm-8 col-sm-offset-2">
 		            <input className="form-control" type="text" id="querySearch" placeholder="Search..." />
 		            <a className="search-icon" href=""><i className="fa fa-search" aria-hidden="true"></i></a>
-		            <p className="error">Please fill out the form.</p>
+		            {this.props.errorVisible && <p className="error">Please fill out the form.</p>}
 		          </div>
 		        </div>
 		      </form>
@@ -87,31 +128,33 @@ class Spotify extends Component {
 		this.state = {
 			filterValue: 'all',
 			filterName: 'All',
-			data: []
+			data: [],
+			errorVisible: false,
 		}
 	}
 	searchQuery(e) {
+		e.preventDefault()
+		if (!e.target.querySearch.value) {
+			this.setState({errorVisible: true})
+			return
+		}
 		fetch('http://localhost:3001/search/'+ this.state.filterValue + '?query='+ e.target.querySearch.value, {
 			method: 'GET',
-			mode: 'no-cors',
 			headers: {
 				'Accept': 'application/json',
 				
 			},
-		}).then (function (response) {
-			console.log(response)
-			return response.json()
-		})
-		.then(function (json) {
-			console.log(json)
-			this.setState({data: json})
-			console.log(this.state)
-		})
-		.catch(function (error) {console.log(error)});
-		e.preventDefault()
+		}).then(response => response.json())
+		.then(json => {
+
+        	this.setState({
+        		data: json.items,
+        		errorVisible: false,
+   			});
+		});
 	}
 	filterClick(val, name) {
-		console.log(name);
+
 		this.setState(
 			{
 				filterValue: val,
@@ -122,7 +165,8 @@ class Spotify extends Component {
 		return (
 			<div>
 				<Header resultsNumber={this.state.data.length}selectedValue={this.state.filterName} onClick={(val, name) => this.filterClick(val, name)}/>
-				<Search filter={this.state.filterValue} onSubmit={(e) => this.searchQuery(e)}/>
+				<Search errorVisible={this.state.errorVisible} filter={this.state.filterValue} onSubmit={(e) => this.searchQuery(e)}/>
+				<Items items={this.state.data}/>
 			</div>
 			)
 	}
