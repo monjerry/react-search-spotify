@@ -13,8 +13,9 @@ def search_validator(func):
         if not filters in search_filters:
             return HTTPResponse(status=400, body={'status': 400, 'msg': 'Valid filters are {}'.format(', '.join(search_filters))})
         if filters == 'all':
-            filters = search_filters[:-1]
-        return func(filters, **kwargs)
+            filters = ','.join(search_filters[:-1])
+        response = func(filters, **kwargs)
+        return response
    return func_wrapper
 
 @route('/healthcheck')
@@ -31,13 +32,19 @@ def search(filters, query=None):
         'type': filters
     }
     try:
-        response = requests.get(spotify_url + 'search', params=payload)
-        if response.status_code == 200:
-            return response.json()
+        resp = requests.get(spotify_url + 'search', params=payload)
+        if resp.status_code == 200:
+            response = {'items': []}
+            for filt in search_filters[:-1]:
+                # Response has plurals (tracks, albums, etc)
+                plural = filt + 's'
+                if plural in resp.json():
+                    response['items'] = resp.json()[plural]['items'] + response['items']
+            return response
         else:
-            body = {'status': response.status_code, 'msg': 'Unexpected error: {}'.format(response)}
-            return HTTPResponse(status=response.status_code, body=body)
+            body = {'status': resp.status_code, 'msg': 'Unexpected error: {}'.format(resp)}
+            return HTTPResponse(status=resp.status_code, body=body)
     except requests.exceptions.RequestException as e:
         return HTTPResponse(status=500, body={'error': '{}'.format(e)})
 
-run(host='localhost', port=8080)
+run(host='localhost', port=3001)
